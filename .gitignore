@@ -1,0 +1,32 @@
+# Build artifacts
+[Bb]in/
+[Oo]bj/
+*.csproj.user
+
+# IDE caches and user-specific settings
+.vs/
+.idea/
+.vscode/
+*.user
+*.suo
+*.rsuser
+
+# Publish / packaging output
+[Pp]ublish/
+dist/
+
+# ASP.NET / Blazor generated assets
+wwwroot/dist/
+
+# Node / tooling dependencies
+node_modules/
+
+# Logs and diagnostics
+*.log
+logs/
+
+# Temporary files
+*.swp
+*~
+
+
