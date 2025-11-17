@@ -29,4 +29,7 @@ logs/
 *.swp
 *~
 
+# Secrets / API keys
+Alpha_Vantage_Project/alpha_vantage_api_key.txt
+
 
