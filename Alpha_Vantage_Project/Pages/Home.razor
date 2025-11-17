@@ -1,7 +1,147 @@
 ﻿@page "/"
 
+@inject AlphaVantageService AlphaVantageService
+
 <PageTitle>Home</PageTitle>
 
-<h1>Hello, world!</h1>
+<div class="container py-4">
+    <h1 class="display-6">Market snapshot</h1>
+    <p class="text-muted">
+        Live intraday candles powered by the Alpha Vantage <code>TIME_SERIES_INTRADAY</code> endpoint.
+    </p>
 
-Welcome to your new app.
+    <form class="row g-3 align-items-end" @onsubmit="HandleSubmitAsync" @onsubmit:preventDefault="true">
+        <div class="col-12 col-sm-4">
+            <label class="form-label" for="symbolInput">Ticker symbol</label>
+            <input id="symbolInput"
+                   class="form-control"
+                   @bind="_symbol"
+                   placeholder="e.g. IBM" />
+        </div>
+
+        <div class="col-12 col-sm-4">
+            <label class="form-label" for="intervalSelect">Interval</label>
+            <select id="intervalSelect" class="form-select" @bind="_interval">
+                @foreach (var option in _intervalOptions)
+                {
+                    <option value="@option">@option</option>
+                }
+            </select>
+        </div>
+
+        <div class="col-12 col-sm-4 d-grid">
+            <button class="btn btn-primary" type="submit" disabled="@_isLoading">
+                @_buttonText
+            </button>
+        </div>
+    </form>
+
+    @if (!string.IsNullOrWhiteSpace(_error))
+    {
+        <div class="alert alert-warning mt-3">@_error</div>
+    }
+    else if (_isLoading)
+    {
+        <div class="mt-3 text-muted">Loading the latest data...</div>
+    }
+
+    @if (_snapshot?.Points.Any() == true)
+    {
+        <div class="card mt-4 shadow-sm">
+            <div class="card-body">
+                <div class="d-flex flex-wrap gap-4 align-items-center justify-content-between">
+                    <div>
+                        <div class="text-uppercase text-muted fw-semibold small">Last refresh</div>
+                        <div class="fw-semibold">@FormatTimestamp(_snapshot.MetaData.LastRefreshed, _snapshot.MetaData.TimeZone)</div>
+                    </div>
+                    @if (LatestPoint is not null)
+                    {
+                        <div>
+                            <div class="text-uppercase text-muted fw-semibold small">Last close</div>
+                            <div class="display-6 mb-0">@LatestPoint.Close.ToString("0.00") USD</div>
+                        </div>
+                    }
+                </div>
+
+                <div class="table-responsive mt-4">
+                    <table class="table table-sm align-middle mb-0">
+                        <thead>
+                            <tr>
+                                <th scope="col">Timestamp</th>
+                                <th scope="col">Open</th>
+                                <th scope="col">High</th>
+                                <th scope="col">Low</th>
+                                <th scope="col">Close</th>
+                                <th scope="col">Volume</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var point in _snapshot.Points.Take(5))
+                            {
+                                <tr>
+                                    <td>@point.Timestamp.ToLocalTime().ToString("g")</td>
+                                    <td>@point.Open.ToString("0.00")</td>
+                                    <td>@point.High.ToString("0.00")</td>
+                                    <td>@point.Low.ToString("0.00")</td>
+                                    <td>@point.Close.ToString("0.00")</td>
+                                    <td>@point.Volume.ToString("N0")</td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    private readonly string[] _intervalOptions = new[] { "1min", "5min", "15min", "30min", "60min" };
+    private string _symbol = "IBM";
+    private string _interval = "5min";
+    private bool _isLoading;
+    private string? _error;
+    private IntradaySnapshot? _snapshot;
+
+    private string _buttonText => _isLoading ? "Fetching..." : "Refresh snapshot";
+    private IntradayPoint? LatestPoint => _snapshot?.Points.FirstOrDefault();
+
+    protected override async Task OnInitializedAsync()
+    {
+        await RefreshAsync();
+    }
+
+    private async Task HandleSubmitAsync()
+    {
+        await RefreshAsync();
+    }
+
+    private async Task RefreshAsync()
+    {
+        _isLoading = true;
+        _error = null;
+
+        try
+        {
+            _snapshot = await AlphaVantageService.GetIntradaySnapshotAsync(_symbol, _interval);
+        }
+        catch (Exception ex)
+        {
+            _error = ex.Message;
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
+
+    private static string FormatTimestamp(string raw, string timeZone)
+    {
+        if (DateTime.TryParse(raw, CultureInfo.InvariantCulture, DateTimeStyles.AssumeUniversal | DateTimeStyles.AdjustToUniversal, out var parsed))
+        {
+            return $"{parsed:G} ({timeZone})";
+        }
+
+        return $"{raw} ({timeZone})";
+    }
+}
